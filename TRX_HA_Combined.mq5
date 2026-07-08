@@ -89,7 +89,7 @@ int OnInit() {
 
    // Setup trade object
    Trade.SetExpertMagicNumber(InpMagic);
-   Trade.SetDeviationInPoints(10);
+   Trade.SetDeviation(10);
 
    // Initialize lookbacks
    int lbs[] = {InpLB1, InpLB2, InpLB3};
