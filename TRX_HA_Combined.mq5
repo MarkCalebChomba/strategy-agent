@@ -341,59 +341,53 @@ double CalcLotSize(double risk_amount, double stop_dist_price) {
 //+------------------------------------------------------------------+
 bool OpenPosition(int lb_index) {
    if (lb_index < 0 || lb_index >= 3) return false;
-   SLookback &lb = g_lb[lb_index];
-   if (!lb.enabled) return false;
-   if (lb.ticket != 0) return false; // Already in position
+   if (!g_lb[lb_index].enabled) return false;
+   if (g_lb[lb_index].ticket != 0) return false;
 
    double ask = SymbolInfoDouble(InpSymbol, SYMBOL_ASK);
-   double bid = SymbolInfoDouble(InpSymbol, SYMBOL_BID);
-   double price = ask; // entry at ask for long
+   double price = ask;
 
-   // Calculate stop distance
    double atr = CalcATR(InpATRPeriod);
    if (atr <= 0) {
-      Print("ATR = 0, skipping entry for LB", lb.lb);
+      Print("ATR = 0, skipping entry for LB", g_lb[lb_index].lb);
       return false;
    }
    double stop_dist = MathMax(InpATRMult * atr, price * InpMinStopPct / 100.0);
    double stop_price = price - stop_dist;
 
-   // Calculate lot size
-   double lots = CalcLotSize(lb.risk_amount, stop_dist);
+   double lots = CalcLotSize(g_lb[lb_index].risk_amount, stop_dist);
    if (lots <= 0) {
-      Print("Lot size = 0 for LB", lb.lb, ", cannot open");
+      Print("Lot size = 0 for LB", g_lb[lb_index].lb, ", cannot open");
       return false;
    }
 
-   // Check margin
    double margin_req = 0;
    if (!OrderCalcMargin(ORDER_TYPE_BUY, InpSymbol, lots, price, margin_req)) {
-      Print("Margin calc failed for LB", lb.lb, ", error: ", GetLastError());
+      Print("Margin calc failed for LB", g_lb[lb_index].lb, ", error: ", GetLastError());
       return false;
    }
    double free_margin = AccountInfo.FreeMargin();
    if (margin_req > free_margin) {
-      Print("Insufficient margin for LB", lb.lb,
+      Print("Insufficient margin for LB", g_lb[lb_index].lb,
             ": need $", margin_req, ", have $", free_margin);
       return false;
    }
 
-   // Open position
-   Trade.SetExpertMagicNumber(lb.magic);
-   if (Trade.PositionOpen(InpSymbol, ORDER_TYPE_BUY, lots, price, stop_price, 0, lb.comment)) {
+   Trade.SetExpertMagicNumber(g_lb[lb_index].magic);
+   if (Trade.Buy(lots, InpSymbol, price, stop_price, 0, g_lb[lb_index].comment)) {
       ulong ticket = Trade.ResultOrder();
       if (ticket > 0) {
-         lb.ticket = ticket;
-         lb.entry_price = price;
-         lb.stop_price = stop_price;
-         lb.pos_volume = lots;
-         Print("Opened LB", lb.lb, " #", ticket, " at ", price,
+         g_lb[lb_index].ticket = ticket;
+         g_lb[lb_index].entry_price = price;
+         g_lb[lb_index].stop_price = stop_price;
+         g_lb[lb_index].pos_volume = lots;
+         Print("Opened LB", g_lb[lb_index].lb, " #", ticket, " at ", price,
                " SL ", stop_price, " lot ", lots,
-               " risk $", lb.risk_amount, " margin $", margin_req);
+               " risk $", g_lb[lb_index].risk_amount, " margin $", margin_req);
          return true;
       }
    }
-   Print("Failed to open LB", lb.lb, ", error: ", GetLastError());
+   Print("Failed to open LB", g_lb[lb_index].lb, ", error: ", GetLastError());
    return false;
 }
 
@@ -402,14 +396,13 @@ bool OpenPosition(int lb_index) {
 //+------------------------------------------------------------------+
 bool ClosePositionForLB(int lb_index) {
    if (lb_index < 0 || lb_index >= 3) return false;
-   SLookback &lb = g_lb[lb_index];
-   if (!lb.enabled || lb.ticket == 0) return false;
+   if (!g_lb[lb_index].enabled || g_lb[lb_index].ticket == 0) return false;
 
-   if (ClosePosition(lb.ticket)) {
-      lb.ticket = 0;
-      lb.entry_price = 0;
-      lb.stop_price = 0;
-      lb.pos_volume = 0;
+   if (ClosePosition(g_lb[lb_index].ticket)) {
+      g_lb[lb_index].ticket = 0;
+      g_lb[lb_index].entry_price = 0;
+      g_lb[lb_index].stop_price = 0;
+      g_lb[lb_index].pos_volume = 0;
       return true;
    }
    return false;
