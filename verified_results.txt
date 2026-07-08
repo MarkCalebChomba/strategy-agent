@@ -1,0 +1,48 @@
+=== VERIFIED V2 RESULTS — July 8, 2026 ===
+
+All 4 scripts run with V2 fixes:
+1. Stop-loss enforced per trade
+2. 0.1% Binance fee deducted (0.2% round trip)
+3. Next-bar open execution (no look-ahead bias)
+4. All lookbacks reported individually + combined
+
+=== TRXUSDT 1m Heikin-Ashi Momentum — V2 Corrected ===
+
+Config            Trades    WR%     Ret%    DD%    RR     PF    TPD  To20%  Pos_Sections
+LB=1 Only           1409   48.4   +174.5    1.5  2.24   2.10  21.03    19d 10/10
+LB=2 Only            426   44.8    +50.0    3.2  2.15   1.75   6.36    30d  9/10
+LB=3 Only            349   43.3    +28.6    6.5  1.95   1.48   5.21    46d  8/10
+Combined            2184   46.9   +253.1    4.1  2.14   1.89  32.60    10d 10/10
+
+=== Combined (lb=1,2,3) — Per-Section Breakdown ===
+Section         Trades   WR%     Ret%    DD%   RR     PF    TPD  To20%
+May 01-May 08     112   51.8   +13.9    1.9  1.88   2.02  18.67   N/A
+May 08-May 15     104   58.7   +11.0    2.2  1.38   1.96  17.33   N/A
+May 15-May 22     130   59.2   +25.3    2.8  2.05   2.98  21.67    5d *
+May 22-May 29     168   44.0   +11.2    6.0  1.83   1.44  28.00   N/A
+May 29-Jun 05     215   48.8   +32.5    4.1  2.04   1.95  35.83    2d *
+Jun 05-Jun 12     141   51.8   +24.8    4.4  2.06   2.21  23.50    4d *
+Jun 12-Jun 19     272   52.6   +45.6    3.3  1.91   2.12  45.33    3d *
+Jun 19-Jun 26     619   41.7   +55.0    4.7  2.33   1.67 103.17    1d *
+Jun 26-Jul 03     305   38.0   +21.4    7.6  2.77   1.70  50.83    6d *
+Jul 03-Jul 08     101   49.5   +11.5    2.9  2.03   1.99  20.20   N/A
+
+=== Combined Portfolio (TRX 80% + 59 other strategies) ===
+Return: +230.9%  DD: 4.0%  TPD: 26.087
+
+=== V1 vs V2 Comparison ===
+Metric          V1 (buggy)   V2 (corrected)   Delta
+Win rate        78.4%        46.9%            -31.5pp
+Return          +495.3%      +253.1%          -242.2pp
+Profit Factor   10.01        1.89             -8.12
+Max DD          6.2%         4.1%             Better (stops helped)
+Days to 20%     7d           10d              3d slower (still ≤10d)
+Grade           A-Exceeding  B-Meeting        Worse
+
+=== Conclusions ===
+- Strategy still profitable after all bug fixes
+- 20% return in 10 days WITHIN 2-week target
+- 10/10 sections profitable, 6/10 hit 20% in ≤10 days
+- Realistic performance: 1.89 PF (vs 10.01 V1 illusion)
+- No single lookback (lb=1,2,3 alone) hits 20% in 2 weeks
+- Only combined (all 3 lookbacks simultaneously) achieves the target

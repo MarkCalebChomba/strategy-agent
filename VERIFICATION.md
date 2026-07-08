@@ -138,10 +138,12 @@ Expected (pre-V2 re-grade): 11 A, 139 B, 12 C, 1 D. Note: After V2 re-grading, T
   ```
 - **Verify**: `combined_portfolio.py` lines ~190-210
 
-### 6.2 Results (V1-based, V2 re-run pending)
+### 6.2 Results (V2 Corrected)
 Run `python combined_portfolio.py` and verify:
-- TRX 80% + others: +424.6%, 5.7% DD, 19.89 TPD
-- Equal weight all 60: +147.9%, 6.6% DD, 0.45 TPD
+- TRX 80% + others equal 20%: +230.9% ret, 4.0% DD, 26.087 TPD, 0.553 Sharpe
+- TRX 50% + others equal 50%: +197.5% ret, 4.6% DD, 16.318 TPD, 0.627 Sharpe
+- TRX 30% + others equal 70%: +175.3% ret, 5.3% DD, 9.806 TPD, 0.677 Sharpe
+- Equal weight all 60: +143.8% ret, 6.6% DD, 0.579 TPD, 0.747 Sharpe
 
 Note: These numbers use V1 TRX metrics. After V2 re-run, expect lower TRX contribution but higher TPD (32.60 vs 24.85).
 
@@ -174,7 +176,7 @@ python test_sections.py
 # 2. Equity curve (V2)
 python equity_curve.py
 
-# 3. Combined portfolio (V2 re-run pending)
+# 3. Combined portfolio (V2 corrected)
 python combined_portfolio.py
 
 # 4. Database queries (see section 5)

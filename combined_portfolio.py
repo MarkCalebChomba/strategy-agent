@@ -68,6 +68,8 @@ TRADING_DAYS = 252
 START_BAL = 10000.0
 RISK_PCT = 0.0025
 MAX_AGG_RISK = 0.10
+FEE_PCT = 0.001
+STOP_SLIPPAGE = 0.001
 
 # 4-Tier grading thresholds used for filtering DB strategies
 TIER_THRESHOLDS = {
@@ -89,20 +91,7 @@ def grade(wr, rr, pf, dd, tpy):
 def run_trx_combined():
     """
     Run TRXUSDT 1m HA combined (lb=1,2,3) on dedup CSV.
-
-    KEY DETAILS
-    ===========
-    - Reads TRXUSDT1_dedup.csv from data/ directory
-    - Initializes three HA Momentum strategies (lookback=1, 2, 3)
-    - Each bar: process exits first, then entries
-    - Risk per trade: $25 (0.25% of $10,000)
-    - Max aggregate risk: $1,000 (10% of $10,000)
-    - Position value = risk_amount / stop_fraction
-      stop_fraction = max(2*ATR_14, close*0.5%) / close
-    - Equity = starting_bal + closed_PnL + unrealized_PnL (mark-to-market)
-    - Simplified Sharpe = WR/100 * RR - 0.5 (not risk-free rate adjusted)
-
-    Returns dict with strategy metrics.
+    V2: Stop-loss enforcement, 0.1% fees, next-bar execution.
     """
     data, dts = [], []
     with open(os.path.join(DATA_DIR, "TRXUSDT1_dedup.csv")) as f:
@@ -125,34 +114,69 @@ def run_trx_combined():
     positions, trades_log = [], []
     total_risk = 0.0
     equity_curve = [START_BAL]
+    pending = []
 
     for i in range(n):
-        close = data[i]["close"]
-        pnl_closed = 0.0
+        bar = data[i]
+        o, h, l, c = bar["open"], bar["high"], bar["low"], bar["close"]
+
+        # Execute pending entries at this bar's OPEN
+        for pe in pending:
+            si, plb = pe["strat_idx"], pe["lb"]
+            if any(p["strat_idx"] == si for p in positions): continue
+            if total_risk + risk_pt > max_risk: continue
+            lookback_bars = data[max(0, i-14):i]
+            atr = sum(b["high"] - b["low"] for b in lookback_bars) / max(1, len(lookback_bars))
+            sd = max(2 * atr, o * 0.005)
+            sp = sd / o if o > 0 else 0.02
+            pv = risk_pt / sp
+            stop_price = o - sd
+            entry_fee = pv * FEE_PCT
+            total_risk += risk_pt
+            positions.append({
+                "strat_idx": si, "lb": plb,
+                "entry_price": o, "stop_price": stop_price,
+                "pos_val": pv, "entry_fee": entry_fee,
+            })
+        pending = []
+
+        # Stop-loss enforcement
         remaining = []
         for p in positions:
-            si = p["strat_idx"]
-            if i < len(strategies[si]["sell"]) and strategies[si]["sell"][i]:
-                pnl = p["pos_val"] * (close - p["entry_price"]) / p["entry_price"] if p["entry_price"] > 0 else 0
-                trades_log.append(pnl)
+            if l <= p["stop_price"]:
+                fill = p["stop_price"] * (1 - STOP_SLIPPAGE)
+                gross_pnl = p["pos_val"] * (fill - p["entry_price"]) / p["entry_price"]
+                exit_fee = p["pos_val"] * (fill / p["entry_price"]) * FEE_PCT
+                net_pnl = gross_pnl - p["entry_fee"] - exit_fee
+                trades_log.append(net_pnl)
                 total_risk -= risk_pt
             else:
                 remaining.append(p)
         positions = remaining
 
+        # Signal-based exits
+        remaining = []
+        for p in positions:
+            si = p["strat_idx"]
+            if i < len(strategies[si]["sell"]) and strategies[si]["sell"][i]:
+                gross_pnl = p["pos_val"] * (c - p["entry_price"]) / p["entry_price"]
+                exit_fee = p["pos_val"] * (c / p["entry_price"]) * FEE_PCT
+                net_pnl = gross_pnl - p["entry_fee"] - exit_fee
+                trades_log.append(net_pnl)
+                total_risk -= risk_pt
+            else:
+                remaining.append(p)
+        positions = remaining
+
+        # Queue entries for next bar
         for si, s in enumerate(strategies):
             if i < len(s["buy"]) and s["buy"][i]:
-                if any(p["strat_idx"] == si for p in positions): continue
-                if total_risk + risk_pt > max_risk: continue
-                atr = sum(data[max(0,i-14):i][j]["high"] - data[max(0,i-14):i][j]["low"] for j in range(min(14,i))) / max(1, min(14,i))
-                sd = max(2*atr, close*0.005)
-                sp = sd/close if close>0 else 0.02
-                pv = risk_pt / sp
-                total_risk += risk_pt
-                positions.append({"strat_idx": si, "entry_price": close, "pos_val": pv})
+                if not any(pe["strat_idx"] == si for pe in pending):
+                    pending.append({"strat_idx": si, "lb": s["lb"]})
 
+        # Equity
         closed_total = sum(trades_log)
-        unrealized = sum(p["pos_val"]*(close-p["entry_price"])/p["entry_price"] for p in positions if p["entry_price"] > 0)
+        unrealized = sum(p["pos_val"] * (c - p["entry_price"]) / p["entry_price"] for p in positions if p["entry_price"] > 0)
         equity_curve.append(START_BAL + closed_total + unrealized)
 
     winners = [t for t in trades_log if t > 0]
@@ -171,12 +195,10 @@ def run_trx_combined():
     tpy = len(trades_log) / total_days * 365 if total_days > 0 else 0
     tpd = len(trades_log) / max(total_days, 1)
 
-    # avg rr
     avg_win = sum(winners)/len(winners) if winners else 0
     avg_loss = abs(sum(losers)/len(losers)) if losers else 1
     rr = avg_win/avg_loss if avg_loss > 0 else 0
 
-    # profit factor
     gross_win = sum(winners) if winners else 0
     gross_loss = abs(sum(losers)) if losers else 1
     pf = gross_win/gross_loss if gross_loss > 0 else 0
@@ -189,7 +211,7 @@ def run_trx_combined():
         "max_drawdown_pct": round(max_dd, 1),
         "trades_per_year": round(tpy, 0),
         "profit_factor": round(pf, 2),
-        "sharpe": round(wr/100*rr - 0.5, 3),  # simplified
+        "sharpe": round(wr/100*rr - 0.5, 3),
         "tpd": round(tpd, 2),
     }
 
