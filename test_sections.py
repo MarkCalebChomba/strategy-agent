@@ -51,7 +51,7 @@ SECTION_SIZE = 10000
 START_BAL = 10000.0
 RISK_PCT = 0.0025          # 0.25% fixed risk per trade
 MAX_AGG_RISK = 0.10        # 10% max aggregate risk
-FEE_PCT = 0.001            # 0.1% per trade (Binance spot taker)
+FEE_PCT = 0.0001           # 0.01% per trade (futures taker, per user)
 STOP_SLIPPAGE = 0.001      # 0.1% slippage on stop-loss fills
 
 
@@ -109,26 +109,40 @@ def backtest_lookbacks(data, dts, lookbacks):
     trades_log = []       # net PnL of closed trades (after fees)
     total_risk = 0.0      # current aggregate risk ($)
     equity_curve = [START_BAL]
-    pending = []          # entries queued from previous bar's signal
+    pending = []          # entries queued from previous bar's buy signal
+    # V3: exit_next flag on positions — sell signal on bar i marks position,
+    # position closes at bar i+1 OPEN (not bar i close, same fix as entries)
 
     for i in range(n):
         bar = data[i]
         o, h, l, c = bar["open"], bar["high"], bar["low"], bar["close"]
 
-        # -- Execute pending entries at this bar's OPEN (from signals on bar i-1) --
+        # -- V3: Close positions marked exit_next at this bar's OPEN --
+        remaining = []
+        for p in positions:
+            if p.get("exit_next"):
+                fill = o
+                gross_pnl = p["pos_val"] * (fill - p["entry_price"]) / p["entry_price"]
+                exit_fee = p["pos_val"] * (fill / p["entry_price"]) * FEE_PCT
+                net_pnl = gross_pnl - p["entry_fee"] - exit_fee
+                trades_log.append(net_pnl)
+                total_risk -= risk_pt
+            else:
+                remaining.append(p)
+        positions = remaining
+
+        # -- Execute pending entries at this bar's OPEN (buy signals on bar i-1) --
         for pe in pending:
             si, plb = pe["strat_idx"], pe["lb"]
-            # Check constraints
             if any(p["strat_idx"] == si for p in positions): continue
             if total_risk + risk_pt > max_risk: continue
-            # Compute ATR using bars up to i (we know bars i and earlier now)
             lookback_bars = data[max(0, i-14):i]
             atr = sum(b["high"] - b["low"] for b in lookback_bars) / max(1, len(lookback_bars))
-            sd = max(2 * atr, o * 0.005)           # stop distance in price units
-            sp = sd / o if o > 0 else 0.02          # stop as fraction of price
-            pv = risk_pt / sp                        # position value ($)
-            stop_price = o - sd                      # hard stop-loss level
-            entry_fee = pv * FEE_PCT                 # 0.1% fee on entry
+            sd = max(2 * atr, o * 0.005)
+            sp = sd / o if o > 0 else 0.02
+            pv = risk_pt / sp
+            stop_price = o - sd
+            entry_fee = pv * FEE_PCT
             total_risk += risk_pt
             positions.append({
                 "strat_idx": si, "lb": plb,
@@ -137,12 +151,10 @@ def backtest_lookbacks(data, dts, lookbacks):
             })
         pending = []
 
-        # -- FIX #1: Stop-loss enforcement --
-        # Check each position's stop against current bar's low
+        # -- Stop-loss enforcement (intra-bar) --
         remaining = []
         for p in positions:
             if l <= p["stop_price"]:
-                # Fill at stop_price minus slippage
                 fill = p["stop_price"] * (1 - STOP_SLIPPAGE)
                 gross_pnl = p["pos_val"] * (fill - p["entry_price"]) / p["entry_price"]
                 exit_fee = p["pos_val"] * (fill / p["entry_price"]) * FEE_PCT
@@ -153,21 +165,13 @@ def backtest_lookbacks(data, dts, lookbacks):
                 remaining.append(p)
         positions = remaining
 
-        # -- Signal-based exits (sell) --
-        remaining = []
+        # -- V3: Mark positions for exit_next (sell signal → close at next bar's OPEN) --
         for p in positions:
             si = p["strat_idx"]
             if i < len(strategies[si]["sell"]) and strategies[si]["sell"][i]:
-                gross_pnl = p["pos_val"] * (c - p["entry_price"]) / p["entry_price"]
-                exit_fee = p["pos_val"] * (c / p["entry_price"]) * FEE_PCT
-                net_pnl = gross_pnl - p["entry_fee"] - exit_fee
-                trades_log.append(net_pnl)
-                total_risk -= risk_pt
-            else:
-                remaining.append(p)
-        positions = remaining
+                p["exit_next"] = True
 
-        # -- FIX #3: Queue entries for NEXT bar's open --
+        # -- Queue entries for NEXT bar's open (buy signals) --
         for si, s in enumerate(strategies):
             if i < len(s["buy"]) and s["buy"][i]:
                 if not any(pe["strat_idx"] == si for pe in pending):

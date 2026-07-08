@@ -21,7 +21,7 @@ SECTION_SIZE = 10000
 START_BAL = 10000.0
 RISK_PCT = 0.0025
 MAX_AGG_RISK = 0.10
-FEE_PCT = 0.001
+FEE_PCT = 0.0001
 STOP_SLIPPAGE = 0.001
 
 
@@ -62,6 +62,19 @@ def backtest_lookbacks(data, dts, lookbacks):
         bar = data[i]
         o, h, l, c = bar["open"], bar["high"], bar["low"], bar["close"]
 
+        # -- V3: Close positions marked exit_next at this bar's OPEN --
+        remaining = []
+        for p in all_positions:
+            if p.get("exit_next"):
+                fill = o
+                gross = p["pos_val"] * (fill - p["entry_price"]) / p["entry_price"]
+                exit_fee = p["pos_val"] * (fill / p["entry_price"]) * FEE_PCT
+                trades_log.append(gross - p["entry_fee"] - exit_fee)
+                total_risk -= risk_pt
+            else:
+                remaining.append(p)
+        all_positions = remaining
+
         # Execute pending entries (signals from bar i-1)
         for pe in pending:
             si, plb = pe["strat_idx"], pe["lb"]
@@ -95,18 +108,11 @@ def backtest_lookbacks(data, dts, lookbacks):
                 remaining.append(p)
         all_positions = remaining
 
-        # Signal-based exits
-        remaining = []
+        # -- V3: Mark positions for exit_next (sell signal → close at next bar's OPEN) --
         for p in all_positions:
             si = p["strat_idx"]
             if i < len(strategies[si]["sell"]) and strategies[si]["sell"][i]:
-                gross = p["pos_val"] * (c - p["entry_price"]) / p["entry_price"]
-                exit_fee = p["pos_val"] * (c / p["entry_price"]) * FEE_PCT
-                trades_log.append(gross - p["entry_fee"] - exit_fee)
-                total_risk -= risk_pt
-            else:
-                remaining.append(p)
-        all_positions = remaining
+                p["exit_next"] = True
 
         # Queue entries for next bar
         for si, s in enumerate(strategies):

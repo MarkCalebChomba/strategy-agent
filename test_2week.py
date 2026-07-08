@@ -12,7 +12,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 START_BAL = 10000.0
 RISK_PCT = 0.0025
 MAX_AGG_RISK = 0.10
-FEE_PCT = 0.001
+FEE_PCT = 0.0001
 STOP_SLIPPAGE = 0.001
 
 def parse_csv(filepath):
@@ -50,6 +50,20 @@ def run_backtest(data, dts, lookbacks):
         bar = data[i]
         o, h, l, c = bar["open"], bar["high"], bar["low"], bar["close"]
 
+        # -- V3: Close positions marked exit_next at this bar's OPEN --
+        remaining = []
+        for p in positions:
+            if p.get("exit_next"):
+                fill = o
+                gross_pnl = p["pos_val"] * (fill - p["entry_price"]) / p["entry_price"]
+                exit_fee = p["pos_val"] * (fill / p["entry_price"]) * FEE_PCT
+                net_pnl = gross_pnl - p["entry_fee"] - exit_fee
+                trades_log.append({"pnl": net_pnl, "date": dts[i], "lb": p["lb"], "reason": "signal"})
+                total_risk -= risk_pt
+            else:
+                remaining.append(p)
+        positions = remaining
+
         # Execute pending entries at this bar's OPEN (signals from bar i-1)
         for pe in pending:
             si, plb = pe["strat_idx"], pe["lb"]
@@ -84,19 +98,11 @@ def run_backtest(data, dts, lookbacks):
                 remaining.append(p)
         positions = remaining
 
-        # Signal-based exits
-        remaining = []
+        # -- V3: Mark positions for exit_next (sell signal → close at next bar's OPEN) --
         for p in positions:
             si = p["strat_idx"]
             if i < len(strategies[si]["sell"]) and strategies[si]["sell"][i]:
-                gross_pnl = p["pos_val"] * (c - p["entry_price"]) / p["entry_price"]
-                exit_fee = p["pos_val"] * (c / p["entry_price"]) * FEE_PCT
-                net_pnl = gross_pnl - p["entry_fee"] - exit_fee
-                trades_log.append({"pnl": net_pnl, "date": dts[i], "lb": p["lb"], "reason": "signal"})
-                total_risk -= risk_pt
-            else:
-                remaining.append(p)
-        positions = remaining
+                p["exit_next"] = True
 
         # Queue entries for next bar
         for si, s in enumerate(strategies):
