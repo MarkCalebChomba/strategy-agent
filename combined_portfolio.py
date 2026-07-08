@@ -68,7 +68,7 @@ TRADING_DAYS = 252
 START_BAL = 10000.0
 RISK_PCT = 0.0025
 MAX_AGG_RISK = 0.10
-FEE_PCT = 0.0001
+FEE_PCT = 0.0000
 STOP_SLIPPAGE = 0.001
 
 # 4-Tier grading thresholds used for filtering DB strategies
@@ -91,7 +91,7 @@ def grade(wr, rr, pf, dd, tpy):
 def run_trx_combined():
     """
     Run TRXUSDT 1m HA combined (lb=1,2,3) on dedup CSV.
-    V3: Stop-loss enforcement, 0.01% futures fees, next-bar entry+exit execution.
+    V3: Stop-loss enforcement, 0% The5ers crypto fees, next-bar entry+exit.
     """
     data, dts = [], []
     with open(os.path.join(DATA_DIR, "TRXUSDT1_dedup.csv")) as f:

@@ -12,7 +12,7 @@ DATA_DIR = os.path.join(os.path.dirname(os.path.abspath(__file__)), "data")
 START_BAL = 10000.0
 RISK_PCT = 0.0025
 MAX_AGG_RISK = 0.10
-FEE_PCT = 0.0001
+FEE_PCT = 0.0000
 STOP_SLIPPAGE = 0.001
 
 def parse_csv(filepath):

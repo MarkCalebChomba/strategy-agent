@@ -51,7 +51,7 @@ SECTION_SIZE = 10000
 START_BAL = 10000.0
 RISK_PCT = 0.0025          # 0.25% fixed risk per trade
 MAX_AGG_RISK = 0.10        # 10% max aggregate risk
-FEE_PCT = 0.0001           # 0.01% per trade (futures taker, per user)
+FEE_PCT = 0.0000           # 0% per trade (The5ers MT5 crypto, per user)
 STOP_SLIPPAGE = 0.001      # 0.1% slippage on stop-loss fills
 
 

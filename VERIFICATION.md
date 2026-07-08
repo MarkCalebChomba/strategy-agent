@@ -58,21 +58,21 @@ This document tells an independent verifier (human or AI) how to check every cla
 ### 3.2 Results to Reproduce (V3 Corrected Numbers)
 Run `python test_sections.py` and verify the combined (lb=1,2,3) aggregate results:
 
-| Metric | V3 Expected Value | V2 (previous) |
-|--------|-------------------|---------------|
-| Total trades | 2,183 | 2,184 |
-| Win rate | 64.5% | 46.9% |
-| Total return | +423.6% | +253.1% |
-| Max drawdown | 2.4% | 4.1% |
-| Avg reward:risk | 1.73 | 2.14 |
-| Profit factor | 3.16 | 1.89 |
-| Trades/day | 32.58 | 32.60 |
-| Days to 20% | 5 | 10 |
+| Metric | V3 Expected Value |
+|--------|-------------------|
+| Total trades | 2,183 |
+| Win rate | 64.5% |
+| Total return | +445.3% |
+| Max drawdown | 2.3% |
+| Avg reward:risk | 1.84 |
+| Profit factor | 3.36 |
+| Trades/day | 32.58 |
+| Days to 20% | 4 |
 
 Individual lookback breakdown:
-- **LB=1**: 1,408 trades, 68.0% WR, +282.9% ret, 0.8% DD, 1.75 RR, 3.71 PF, 21.01 TPD, 12d to 20%
-- **LB=2**: 426 trades, 59.4% WR, +82.9% ret, 2.4% DD, 1.85 RR, 2.70 PF, 6.36 TPD, 18d to 20%
-- **LB=3**: 349 trades, 57.0% WR, +57.8% ret, 3.8% DD, 1.76 RR, 2.33 PF, 5.21 TPD, 20d to 20%
+- **LB=1**: 1,408 trades, 68.0% WR, +296.9% ret, 0.8% DD, 1.87 RR, 3.97 PF, 21.01 TPD, 12d to 20%
+- **LB=2**: 426 trades, 59.4% WR, +87.1% ret, 2.4% DD, 1.95 RR, 2.85 PF, 6.36 TPD, 18d to 20%
+- **LB=3**: 349 trades, 57.0% WR, +61.3% ret, 3.6% DD, 1.85 RR, 2.46 PF, 5.21 TPD, 19d to 20%
 
 Trade count arithmetic: 1408 + 426 + 349 = 2183, confirming risk cap never binds (max 3 concurrent positions << 40-position limit).
 
@@ -80,17 +80,17 @@ Combined grade: **A-Exceeding** (WR=64.5% > 50%). Individual lookbacks: B-Meetin
 
 **V3 changes from V2** (July 8, 2026):
 1. **Next-bar exit** (biggest impact): Sell signals on bar i queue exit for bar i+1 OPEN instead of closing at bar i close. This lets the HA candle fully confirm before exiting, filtering whipsaws and boosting WR from 46.9% → 64.5%.
-2. **Futures fee**: Changed from 0.1%/side (Binance spot) to 0.01%/side (futures). Reduces drag from $0.20 per $100 to $0.02 per $100 of position value.
+2. **The5ers crypto fees**: 0% commission on crypto for MT5 at The5ers. No fee drag whatsoever.
 
 ## 4. Equity Curve
 
 ### 4.1 Verify (V3 Corrected Numbers)
 Run `python equity_curve.py` and check:
-- Full return: +423.6%
-- Max DD: 2.4%
-- 20% target achieved in 5 days
+- Full return: +445.3%
+- Max DD: 2.3%
+- 20% target achieved in 4 days
 - 10/10 sections positive, 10/10 hit 20% within 2 weeks
-- Combined equity curve reflects all 2,183 trades with fee deduction, stop-loss enforcement, and next-bar entry/exit execution
+- Combined equity curve reflects all 2,183 trades with stop-loss enforcement and next-bar entry/exit execution
 
 ### 4.2 Equity Calculation
 ```
@@ -242,16 +242,16 @@ trade_PnL = (exit_value - entry_value) - entry_cost - exit_cost
 
 ### 9.5 Summary of Impact
 
-| Metric | V1 (Buggy) | V2 (0.1% fee, entry fix only) | V3 (0.01% fee, entry+exit fix) |
+| Metric | V1 (Buggy) | V2 (0.1% fee, entry fix only) | V3 (0% fee, entry+exit fix) |
 |--------|-----------|-------------------------------|-------------------------------|
 | Win rate | 78.4% | 46.9% | 64.5% |
-| Profit factor | 10.01 | 1.89 | 3.16 |
-| Total return | +495.3% | +253.1% | +423.6% |
-| Max drawdown | 6.2% | 4.1% | 2.4% |
+| Profit factor | 10.01 | 1.89 | 3.36 |
+| Total return | +495.3% | +253.1% | +445.3% |
+| Max drawdown | 6.2% | 4.1% | 2.3% |
 | Trades/day | 24.85 | 32.60 | 32.58 |
-| Days to 20% | 7 | 10 | 5 |
+| Days to 20% | 7 | 10 | 4 |
 | Grade | A-Exceeding | B-Meeting | A-Exceeding |
 
-**Why V3 is better than V2**: The incomplete exit fix in V2 (entries moved to next-bar open, but exits remained at same-bar close) created an asymmetry. For a HA mean-reversion strategy, closing at next-bar open instead of current-bar close lets the HA candle fully confirm a trend change before exiting, filtering whipsaw signals. Combined with 0.01% futures fees (vs 0.1% spot), the system regained A-tier status.
+**Why V3 is better than V2**: The incomplete exit fix in V2 (entries moved to next-bar open, but exits remained at same-bar close) created an asymmetry. For a HA mean-reversion strategy, closing at next-bar open instead of current-bar close lets the HA candle fully confirm a trend change before exiting, filtering whipsaw signals. Combined with 0% The5ers crypto commissions, the system achieved A-tier status with 4 days to 20%.
 
 **Risk cap note**: 2183 = 1408 + 426 + 349 confirms the aggregate risk cap (10%, 40 concurrent positions) never restricts trading since max 3 positions run simultaneously. The combined result is arithmetic — the sum of 3 non-interacting strategies on the same account, not emergent diversification.

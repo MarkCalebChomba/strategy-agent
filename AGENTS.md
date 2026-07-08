@@ -63,12 +63,12 @@ Use `--grade` to see breakdown, `--grade-locked A-Exceeding` to filter by tier.
 
 ## Critical Context (V3 Corrected)
 
-**TRXUSDT 1m Heikin-Ashi Momentum Combined (lb=1,2,3) — V3 (futures fee + next-bar entries AND exits)**
+**TRXUSDT 1m Heikin-Ashi Momentum Combined (lb=1,2,3) — V3 (The5ers: 0% crypto fees, next-bar entries AND exits)**
 ```
-LB=1 only:   1408 trades, 68.0% WR, +282.9% ret, 0.8% DD, 1.75 RR, 3.71 PF, 21.01 TPD, 12d to 20%
-LB=2 only:    426 trades, 59.4% WR, +82.9% ret, 2.4% DD, 1.85 RR, 2.70 PF, 6.36 TPD, 18d to 20%
-LB=3 only:    349 trades, 57.0% WR, +57.8% ret, 3.8% DD, 1.76 RR, 2.33 PF, 5.21 TPD, 20d to 20%
-Combined:    2183 trades, 64.5% WR, +423.6% ret, 2.4% DD, 1.73 RR, 3.16 PF, 32.58 TPD, 5d to 20%
+LB=1 only:   1408 trades, 68.0% WR, +296.9% ret, 0.8% DD, 1.87 RR, 3.97 PF, 21.01 TPD, 12d to 20%
+LB=2 only:    426 trades, 59.4% WR, +87.1% ret, 2.4% DD, 1.95 RR, 2.85 PF, 6.36 TPD, 18d to 20%
+LB=3 only:    349 trades, 57.0% WR, +61.3% ret, 3.6% DD, 1.85 RR, 2.46 PF, 5.21 TPD, 19d to 20%
+Combined:    2183 trades, 64.5% WR, +445.3% ret, 2.3% DD, 1.84 RR, 3.36 PF, 32.58 TPD, 4d to 20%
 ```
 
 Trade count arithmetic: 1408 + 426 + 349 = 2183 (risk cap never binds, 3 concurrent positions << 40 limit).
@@ -76,6 +76,8 @@ Trade count arithmetic: 1408 + 426 + 349 = 2183 (risk cap never binds, 3 concurr
 Combined grade: **A-Exceeding** (WR=64.5% > 50%). Individual lookbacks: B-Meeting (each WR < 50%).
 
 **V3 changes from V2**: (1) Exits also use next-bar open (not same-bar close) — the V2 entry-only fix was incomplete. For HA mean-reversion on range-bound TRX, next-bar exit filters whipsaws, boosting WR from 46.9% to 64.5%. (2) Futures fee 0.01%/side instead of Binance spot 0.1%. Combined result: 5 days to 20%, 10/10 sections positive, 10/10 hit 20% in 2 weeks.
+
+**Final fee update (July 8, 2026)**: The5ers MT5 charges 0% commission on crypto. With 0% fees, combined return rises to +445.3%, PF to 3.36, days to 20% drops to 4d. All 4 scripts consistent.
 
 ## Progress
 **Done (V2 Audit Fixes Applied):**
