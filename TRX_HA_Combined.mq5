@@ -89,7 +89,7 @@ int OnInit() {
 
    // Setup trade object
    Trade.SetExpertMagicNumber(InpMagic);
-   Trade.SetDeviation(10);
+   Trade.SetDeviationInPoints(10);
 
    // Initialize lookbacks
    int lbs[] = {InpLB1, InpLB2, InpLB3};
@@ -141,10 +141,11 @@ void CalculateHA(int bars_needed) {
    ArraySetAsSeries(low, true);
    ArraySetAsSeries(close, true);
 
-   int total = CopyOpen(InpSymbol, InpTF, 0, bars_needed + 5, open);
-   CopyHigh(InpSymbol, InpTF, 0, bars_needed + 5, high);
-   CopyLow(InpSymbol, InpTF, 0, bars_needed + 5, low);
-   CopyClose(InpSymbol, InpTF, 0, bars_needed + 5, close);
+   // Copy from bar 1 (completed bar) — bar 0 is still forming
+   int total = CopyOpen(InpSymbol, InpTF, 1, bars_needed + 5, open);
+   CopyHigh(InpSymbol, InpTF, 1, bars_needed + 5, high);
+   CopyLow(InpSymbol, InpTF, 1, bars_needed + 5, low);
+   CopyClose(InpSymbol, InpTF, 1, bars_needed + 5, close);
 
    if (total < bars_needed + 2) return;
 
