@@ -206,7 +206,9 @@ class Strategy:
         self.risk_pct = risk_pct
         self.atr_mult = atr_mult
         self.min_stop_pct = min_stop_pct
-        self.magic = 20260708 + hash(f"{symbol}_{template}_{json.dumps(params, sort_keys=True)}") % 10000
+        import zlib
+        stable = f"{symbol}_{template}_{json.dumps(params, sort_keys=True)}"
+        self.magic = 20260708 + zlib.crc32(stable.encode()) % 10000
         self.runner = RUNNERS[template]
         self.pending_entry = False
         self.pending_exit = False
@@ -258,6 +260,21 @@ class LiveBot:
         atr = sum(data[-i]["high"] - data[-i]["low"] for i in range(1, n+1)) / n
         return max(self.cfg.get("atr_mult", 2.0) * atr, price * self.cfg.get("min_stop_pct", 0.005))
 
+    def total_open_risk(self):
+        """Sum of risk dollars across all open positions."""
+        if not self.mt5.ready: return 0.0
+        total = 0.0
+        bal = self.mt5.balance()
+        for p in self.mt5.mt5.positions_get() or []:
+            if p.sl <= 0: continue
+            info = self.mt5.mt5.symbol_info(p.symbol)
+            if not info: continue
+            sl_ticks = abs(p.price_open - p.sl) / info.trade_tick_size
+            if sl_ticks < 1: continue
+            risk = p.volume * sl_ticks * info.trade_tick_value
+            total += risk
+        return total
+
     def is_new_bar(self, strat, data):
         if not data: return False
         key = data[-1].get("time", "")
@@ -282,9 +299,14 @@ class LiveBot:
                 self.mt5.close(ticket)
             strat.pending_exit = False
 
-        # 4. Execute pending entry (with cooldown)
+        # 4. Execute pending entry (with cooldown + aggregate risk cap)
         cooldown = self.cfg.get("cooldown_seconds", 0)
-        if strat.pending_entry and (cooldown == 0 or now - strat.last_entry_time >= cooldown):
+        max_risk = self.cfg.get("max_agg_risk", 0.10)
+        open_risk = self.total_open_risk()
+        bal = self.mt5.balance()
+        agg_ok = open_risk < bal * max_risk
+
+        if strat.pending_entry and (cooldown == 0 or now - strat.last_entry_time >= cooldown) and agg_ok:
             if not self.mt5.position_ticket(strat.mt5_symbol, strat.magic):
                 ask, _ = self.mt5.price(strat.mt5_symbol)
                 if ask:
@@ -365,15 +387,9 @@ CONFIG_TEMPLATE = {
         {"symbol": "XAUUSD", "data_source": "yfinance", "mt5_symbol": "XAUUSD",
          "timeframe": "4h", "template": "Turtle",
          "params": {"entry_window": 20, "exit_window": 5}},
-        {"symbol": "TRXUSDT", "data_source": "binance", "mt5_symbol": "TRXUSD.lv",
-         "timeframe": "1m", "template": "Heikin-Ashi Momentum",
-         "params": {"lookback": 1}},
-        {"symbol": "TRXUSDT", "data_source": "binance", "mt5_symbol": "TRXUSD.lv",
-         "timeframe": "1m", "template": "Heikin-Ashi Momentum",
-         "params": {"lookback": 2}},
-        {"symbol": "TRXUSDT", "data_source": "binance", "mt5_symbol": "TRXUSD.lv",
-         "timeframe": "1m", "template": "Heikin-Ashi Momentum",
-         "params": {"lookback": 3}},
+        # NOTE: TRX HA (lb=1,2,3) is handled by TRX_HA_Combined.mq5 EA on MT5.
+        # Do NOT run both live_bot.py AND the EA on the same account simultaneously
+        # unless you disable TRX entries in one of them.
     ]
 }
 

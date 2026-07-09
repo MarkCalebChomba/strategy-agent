@@ -125,8 +125,31 @@ Portfolio numbers above use V1 TRX metrics. V2 re-run pending - volume-weighted 
 - 91 CSV files in data/ (13 symbols x 7 TFs), tab-separated OHLCV from user's download folder
 - No stock indices per user preference
 
+## Live Bot (`live_bot.py`)
+- Multi-strategy bot: yfinance (forex/metals) + Binance CCXT (crypto) data → MT5 execution
+- 5 A-Exceeding strategies across OANDA symbols + 3 TRX HA via EA
+- Auto-restart via `run_bot.bat`/`run_bot.vbs` in Windows Startup
+- Configurable cooldown (default 300s between entries)
+- Magic numbers stable across restarts (zlib.crc32)
+- Aggregate risk cap enforced live (max_agg_risk)
+- **TRX_HA_Combined.mq5 EA and live_bot.py must NOT run simultaneously** unless TRX entries are disabled in one
+
+## Audit Findings (July 9, 2026)
+**Exit-timing fix vs fee removal — isolated:**
+| Scenario | Combined WR | Return | PF | Days to 20% |
+|----------|------------|--------|----|-------------|
+| V2 (old exit, 0.1% fee) | 46.9% | — | 1.89 | — |
+| V3 + 0.1% fee (exit fix only) | 45.4% | +228% | 1.78 | 7d |
+| V3 + 0% fee (exit fix + fee removal) | 64.5% | +445% | 3.36 | 4d |
+The exit-timing fix changed nothing — the entire V3 jump came from zeroing fees. The strategy is real-edge but only at 0% cost assumption. Real-world TRX CFD spreads likely reintroduce 0.1%+ cost, dropping WR back to ~45%.
+
+**Critical bugs fixed in live_bot.py (post-audit):**
+1. Magic number: `hash()` → `zlib.crc32()` (stable across restarts)
+2. Aggregate risk cap: now enforced before each entry
+3. TRX entries removed from config (delegated to EA); exclusion warning added
+
 ## Next Steps
-- Review V2 corrected results (WR drop from 78.4% to 46.9% is significant but system remains profitable)
-- Re-run portfolio builder with V2 TRX combined metrics
-- Re-grade and re-lock all strategies with V2 backtest engine
-- Investigate if other symbols/timeframes have similar V1-to-V2 drops
+- Get actual TRXUSD.lv spread from FX Pesa and model as minimum cost floor
+- Re-run backtest with realistic spread/fee for live broker
+- Decide single execution path (Python bot or MQL5 EA) for production
+- Verify yfinance vs MT5 price alignment for forex/metals signals
