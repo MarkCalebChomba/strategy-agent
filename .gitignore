@@ -14,3 +14,8 @@ data/
 nul
 scan_progress.log
 "C%EF%BF%BCUsersMark"
+bot_output.log
+config.json
+*.ex5
+install_startup.bat
+install_startup.vbs
